@@ -1,0 +1,81 @@
+---
+title: "Analysis of Mike Trout batting"
+author: "Joshua Cook"
+date: "11/20/2021"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, dpi = 300, comment = "#>")
+
+library(glue)
+library(patchwork)
+library(tidyverse)
+
+for (file in list.files(here::here("src"), full.names = TRUE, pattern = "R$")) {
+  source(file)
+}
+
+trout_batter_data <- readRDS(
+  here::here("data", "mike-trout-batting-data.rds")
+)
+
+theme_set(
+  theme_classic() +
+    theme(
+      strip.background = element_blank(),
+      axis.ticks = element_blank(),
+      panel.grid.major = element_line(),
+      plot.title = element_text(hjust = 0.5)
+    )
+)
+```
+
+```{r}
+glimpse(trout_batter_data)
+```
+
+```{r}
+trout_batter_data %>%
+  filter(!is.na(hc_x)) %>%
+  ggplot(aes(x = hc_x, y = -hc_y)) +
+  facet_wrap("game_year") +
+  geom_point(aes(color = bb_type), size = 0.5, alpha = 0.5) +
+  scale_color_brewer(type = "qual", palette = "Set1") +
+  coord_fixed() +
+  theme(
+    axis.text = element_blank(),
+    axis.line = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(title = "Mike Trout hits", color = "hit type")
+```
+
+```{r}
+trout_batter_data %>%
+  filter(!is.na(hc_x)) %>%
+  ggplot(aes(x = hc_x, y = -hc_y)) +
+  geom_point(aes(color = game_year), size = 1, alpha = 0.5) +
+  scale_color_distiller(type = "div", palette = "RdYlBu") +
+  coord_fixed() +
+  theme(
+    axis.text = element_blank(),
+    axis.line = element_blank(),
+    axis.title = element_blank()
+  )
+```
+
+
+interesting factors:
+
+- home vs away (use the column `inning_topbot`)
+- opposing team
+- runners on-base
+- pitch type, location, speed
+- the pitcher, sideness of the pitcher (left vs right)
+- current at-bat count
+- changes over time
+- velocity and acceleration of the hit
