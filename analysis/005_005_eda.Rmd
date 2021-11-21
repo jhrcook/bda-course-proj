@@ -1,0 +1,118 @@
+---
+title: "Exploratory data analysis"
+author: "Joshua Cook"
+date: "11/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, dpi = 300, comment = "#>")
+
+library(glue)
+library(patchwork)
+library(tidyverse)
+
+for (file in list.files(here::here("src"), full.names = TRUE, pattern = "R$")) {
+  source(file)
+}
+
+set_project_theme()
+trout_batter_data <- load_trout_data()
+```
+
+```{r}
+glimpse(trout_batter_data)
+```
+
+interesting factors:
+
+- home vs away (use the column `inning_topbot`)
+- opposing team
+- runners on-base
+- pitch type, location, speed
+- the pitcher, sideness of the pitcher (left vs right)
+- current at-bat count
+- changes over time
+- velocity and acceleration of the hit
+
+```{r hit-results-year}
+trout_batter_data %>%
+  filter(!is.na(hc_x)) %>%
+  ggplot(aes(x = hc_x, y = -hc_y)) +
+  facet_wrap("game_year") +
+  geom_point(aes(color = bb_type), size = 0.5, alpha = 0.5) +
+  scale_color_brewer(type = "qual", palette = "Set1") +
+  coord_fixed() +
+  theme(
+    axis.text = element_blank(),
+    axis.line = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(title = "Mike Trout hits", color = "hit type")
+```
+
+```{r hit-locations-year}
+trout_batter_data %>%
+  filter(!is.na(hc_x)) %>%
+  ggplot(aes(x = hc_x, y = -hc_y)) +
+  geom_point(aes(color = game_year), size = 1, alpha = 0.5) +
+  scale_color_distiller(type = "div", palette = "RdYlBu") +
+  coord_fixed() +
+  theme(
+    axis.text = element_blank(),
+    axis.line = element_blank(),
+    axis.title = element_blank()
+  )
+```
+
+```{r strike-zone}
+xmax <- -1
+xmin <- 1
+ymax <- 3.5
+ymin <- 1.5
+strike_zone <- tibble(
+  x = c(xmin, xmax, xmax, xmin, xmin),
+  y = c(ymax, ymax, ymin, ymin, ymax)
+)
+
+trout_batter_data %>%
+  filter(description %in% c("called_strike", "ball")) %>%
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  facet_wrap(vars(description), nrow = 1) +
+  geom_point(aes(color = description), size = 0.5, alpha = 0.5) +
+  geom_path(aes(x = x, y = y), data = strike_zone) +
+  scale_color_brewer(type = "qual", palette = "Dark2") +
+  coord_fixed()
+```
+
+```{r pitch-location-results, fig.height=12}
+keep_pitch_results <- c(
+  "swinging_strike", "called_strike", "hit_into_play", "foul"
+)
+
+trout_batter_data %>%
+  filter(!(is.na(plate_x) || is.na(plate_z))) %>%
+  filter(!is.na(pitch_type)) %>%
+  filter(!str_detect(description, "bunt")) %>%
+  mutate(description = case_when(
+    description == "swinging_strike_blocked" ~ "swinging_strike",
+    str_detect(description, "foul") ~ "foul",
+    TRUE ~ description
+  )) %>%
+  filter(description %in% keep_pitch_results) %>%
+  mutate(description = str_replace(description, "_", " ")) %>%
+  group_by(pitch_type) %>%
+  filter(n() > 100) %>%
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  facet_grid(rows = vars(pitch_type), cols = vars(description)) +
+  geom_point(aes(color = pitch_type), size = 0.4, alpha = 0.7) +
+  geom_path(aes(x = x, y = y), data = strike_zone) +
+  geom_density_2d() +
+  scale_x_continuous(expand = expansion(mult = c(0, 0))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0))) +
+  coord_fixed() +
+  theme(
+    axis.line = element_blank()
+  ) +
+  labs(x = "plate x", y = "plate y")
+```
